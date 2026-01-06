@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "exply",
+  "version": "1.0.0",
+  "description": "Get context-aware explanations of highlighted text using AI",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+      "content_scripts": [
+        {
+          "matches": ["<all_urls>"],
+          "js": ["api.js", "content.js"],
+          "css": ["styles.css"],
+          "run_at": "document_idle",
+          "all_frames": true
+        }
+      ],
+  "options_page": "options.html",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icon16.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
