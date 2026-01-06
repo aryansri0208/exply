@@ -8,11 +8,22 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// CORS Configuration - Allow all origins for browser extension
 app.use(cors({
   origin: '*', // Allow all origins for extension
-  credentials: true
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false // Set to false when using origin: '*'
 }));
+
+// Handle preflight OPTIONS requests explicitly
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(204);
+});
+
 app.use(express.json({ limit: '1mb' }));
 
 // Gemini API Configuration
@@ -211,9 +222,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`exply backend server running on port ${PORT}`);
-  console.log(`Gemini Model: ${GEMINI_MODEL}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-});
+// Export app for Vercel serverless functions
+module.exports = app;
+
+// Start server only if not in Vercel environment
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`exply backend server running on port ${PORT}`);
+    console.log(`Gemini Model: ${GEMINI_MODEL}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
+}

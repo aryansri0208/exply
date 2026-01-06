@@ -43,13 +43,6 @@
   if (!window.ExplyAPI) {
     console.error('ExplyAPI module not loaded. Check manifest.json includes api.js');
   }
-  
-  // Auth module should be loaded before this script
-  if (!window.ExplyAuth) {
-    console.error('ExplyAuth module not loaded. Check manifest.json includes auth.js');
-  }
-  
-  let authModal = null; // Authentication modal element
 
   let selectedText = '';
   let selectionRange = null;
@@ -601,198 +594,9 @@
     }
   }
 
-  // Check authentication and show login if needed
-  async function checkAuthAndShowLogin() {
-    const isAuth = await window.ExplyAuth.isAuthenticated();
-    if (!isAuth) {
-      showAuthModal();
-      return false;
-    }
-    return true;
-  }
-
-  // Show authentication modal
-  function showAuthModal() {
-    // Remove existing modal if any
-    if (authModal) {
-      authModal.remove();
-    }
-
-    // Create modal
-    authModal = document.createElement('div');
-    authModal.id = 'exply-auth-modal';
-    authModal.setAttribute('translate', 'no');
-    authModal.setAttribute('lang', 'en');
-    authModal.setAttribute('data-translate', 'no');
-
-    const card = document.createElement('div');
-    card.id = 'exply-auth-card';
-
-    let isLoginMode = true; // Start with login mode
-
-    function renderForm() {
-      card.innerHTML = `
-        <h2>${isLoginMode ? 'Welcome to Exply' : 'Create Account'}</h2>
-        <div class="subtitle">${isLoginMode ? 'Please sign in to continue' : 'Sign up to get started'}</div>
-        <form id="auth-form">
-          <div class="auth-form-group">
-            <label for="auth-email">Email</label>
-            <input type="email" id="auth-email" required autocomplete="email">
-            <div class="auth-error" id="email-error"></div>
-          </div>
-          <div class="auth-form-group">
-            <label for="auth-password">Password</label>
-            <input type="password" id="auth-password" required autocomplete="${isLoginMode ? 'current-password' : 'new-password'}" minlength="6">
-            <div class="auth-error" id="password-error"></div>
-          </div>
-          ${!isLoginMode ? `
-          <div class="auth-form-group">
-            <label for="auth-confirm-password">Confirm Password</label>
-            <input type="password" id="auth-confirm-password" required autocomplete="new-password" minlength="6">
-            <div class="auth-error" id="confirm-password-error"></div>
-          </div>
-          ` : ''}
-          <div class="auth-error" id="auth-general-error"></div>
-          <div class="auth-buttons">
-            <button type="submit" class="auth-btn auth-btn-primary">${isLoginMode ? 'Sign In' : 'Sign Up'}</button>
-            <button type="button" class="auth-btn auth-btn-secondary" id="auth-cancel">Cancel</button>
-          </div>
-        </form>
-        <div class="auth-switch">
-          ${isLoginMode ? "Don't have an account? " : "Already have an account? "}
-          <a href="#" id="auth-switch-link">${isLoginMode ? 'Sign up' : 'Sign in'}</a>
-        </div>
-      `;
-
-      // Attach event listeners
-      const form = card.querySelector('#auth-form');
-      const switchLink = card.querySelector('#auth-switch-link');
-      const cancelBtn = card.querySelector('#auth-cancel');
-
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        // Clear previous errors
-        card.querySelectorAll('.auth-error').forEach(err => {
-          err.classList.remove('show');
-          err.textContent = '';
-        });
-
-        const email = card.querySelector('#auth-email').value.trim();
-        const password = card.querySelector('#auth-password').value;
-        const confirmPassword = isLoginMode ? null : card.querySelector('#auth-confirm-password')?.value;
-
-        // Validate
-        let hasError = false;
-        if (!email || !email.includes('@')) {
-          const emailError = card.querySelector('#email-error');
-          emailError.textContent = 'Please enter a valid email address';
-          emailError.classList.add('show');
-          hasError = true;
-        }
-
-        if (!password || password.length < 6) {
-          const passwordError = card.querySelector('#password-error');
-          passwordError.textContent = 'Password must be at least 6 characters';
-          passwordError.classList.add('show');
-          hasError = true;
-        }
-
-        if (!isLoginMode && password !== confirmPassword) {
-          const confirmError = card.querySelector('#confirm-password-error');
-          confirmError.textContent = 'Passwords do not match';
-          confirmError.classList.add('show');
-          hasError = true;
-        }
-
-        if (hasError) return;
-
-        // Disable form
-        const submitBtn = form.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = isLoginMode ? 'Signing in...' : 'Signing up...';
-
-        try {
-          let result;
-          if (isLoginMode) {
-            result = await window.ExplyAuth.authenticate(email, password);
-          } else {
-            result = await window.ExplyAuth.signUp(email, password, confirmPassword);
-          }
-
-          if (result.success) {
-            // Close modal
-            hideAuthModal();
-            // Refresh session
-            await window.ExplyAuth.refreshSession();
-            // Retry the explanation if there was a pending action
-            if (selectedText && selectionRange) {
-              setTimeout(() => triggerExplanation(), 100);
-            }
-          } else {
-            const generalError = card.querySelector('#auth-general-error');
-            generalError.textContent = result.message || 'Authentication failed. Please try again.';
-            generalError.classList.add('show');
-            submitBtn.disabled = false;
-            submitBtn.textContent = isLoginMode ? 'Sign In' : 'Sign Up';
-          }
-        } catch (error) {
-          const generalError = card.querySelector('#auth-general-error');
-          generalError.textContent = error.message || 'An error occurred. Please try again.';
-          generalError.classList.add('show');
-          submitBtn.disabled = false;
-          submitBtn.textContent = isLoginMode ? 'Sign In' : 'Sign Up';
-        }
-      });
-
-      switchLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        isLoginMode = !isLoginMode;
-        renderForm();
-      });
-
-      cancelBtn.addEventListener('click', () => {
-        hideAuthModal();
-      });
-    }
-
-    renderForm();
-    authModal.appendChild(card);
-    document.body.appendChild(authModal);
-
-    // Close on background click
-    authModal.addEventListener('click', (e) => {
-      if (e.target === authModal) {
-        hideAuthModal();
-      }
-    });
-
-    // Close on Escape key
-    const escapeHandler = (e) => {
-      if (e.key === 'Escape' && authModal) {
-        hideAuthModal();
-        document.removeEventListener('keydown', escapeHandler);
-      }
-    };
-    document.addEventListener('keydown', escapeHandler);
-  }
-
-  // Hide authentication modal
-  function hideAuthModal() {
-    if (authModal) {
-      authModal.remove();
-      authModal = null;
-    }
-  }
 
   // Trigger explanation (reusable for both click and keyboard shortcut)
   async function triggerExplanation() {
-    // Check API key using API module
-    const apiKey = await window.ExplyAPI.getApiKey();
-    if (!apiKey) {
-      alert('Please set your API key in the extension options. Right-click extension icon > Options.');
-      return;
-    }
 
     // Check if we have a valid current selection
     const selection = window.getSelection();
@@ -840,13 +644,7 @@
 
   // Wrapper function to get explanation using API module
   async function getExplanation(context, followUpQuestion = null, mode = 'explain') {
-    const apiKey = await window.ExplyAPI.getApiKey();
-    if (!apiKey) {
-      throw new Error('API key not set. Please configure it in extension options.');
-    }
-    
     return await window.ExplyAPI.getExplanation(
-      apiKey,
       context,
       followUpQuestion,
       mode,
@@ -1547,24 +1345,5 @@
     clearTimeout(scrollTimeout);
     scrollTimeout = setTimeout(handleSelection, 150);
   });
-
-  // Initialize: Check authentication and refresh session periodically
-  (async () => {
-    if (window.ExplyAuth) {
-      // Refresh session on load if authenticated
-      const isAuth = await window.ExplyAuth.isAuthenticated();
-      if (isAuth) {
-        await window.ExplyAuth.refreshSession();
-      }
-
-      // Refresh session every hour to keep it alive
-      setInterval(async () => {
-        const isAuth = await window.ExplyAuth.isAuthenticated();
-        if (isAuth) {
-          await window.ExplyAuth.refreshSession();
-        }
-      }, 60 * 60 * 1000); // 1 hour
-    }
-  })();
 
 })();
