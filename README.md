@@ -10,48 +10,6 @@ A lightweight Chrome extension that provides context-aware explanations of highl
 - **Optional follow-up**: One context-bound follow-up question per explanation
 - **Privacy-first**: No data storage, no login required
 
-## How It Works
-
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin: 2rem 0;">
-  <div>
-    <img src="logo.png" alt="Step 1: Highlight Text" style="width: 100%; max-width: 400px; border-radius: 8px;">
-  </div>
-  <div>
-    <h3>1. Highlight Text</h3>
-    <p>Select any text on any webpage (minimum 8 characters). The extension detects your selection automatically.</p>
-  </div>
-</div>
-
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin: 2rem 0;">
-  <div>
-    <h3>2. Click the Button</h3>
-    <p>A floating "💡 Exply's Explanation" button appears near your selection. Click it to get an AI-powered explanation.</p>
-  </div>
-  <div>
-    <img src="logo.png" alt="Step 2: Click Button" style="width: 100%; max-width: 400px; border-radius: 8px;">
-  </div>
-</div>
-
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin: 2rem 0;">
-  <div>
-    <img src="logo.png" alt="Step 3: Get Explanation" style="width: 100%; max-width: 400px; border-radius: 8px;">
-  </div>
-  <div>
-    <h3>3. Get Context-Aware Explanation</h3>
-    <p>An inline explanation card appears with bullet points explaining what the text means in this specific context. Switch between "Explain", "Simplify", and "Implication" modes.</p>
-  </div>
-</div>
-
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; margin: 2rem 0;">
-  <div>
-    <h3>4. Ask Follow-Up (Optional)</h3>
-    <p>Use the follow-up input to ask one clarifying question about the highlighted text. The response stays within the original context.</p>
-  </div>
-  <div>
-    <img src="logo.png" alt="Step 4: Follow-Up" style="width: 100%; max-width: 400px; border-radius: 8px;">
-  </div>
-</div>
-
 ## Setup
 
 ### 1. Create Extension Icons (Optional but Recommended)
@@ -75,17 +33,28 @@ The extension will work without icons, but Chrome will show warnings.
 3. Click "Load unpacked"
 4. Select this directory (`BrowserAI`)
 
-### 3. Configure Language (Optional)
+### 3. Configure API Key
 
-The extension works out of the box, but you can customize your preferred language:
+The extension requires a Google Gemini API key to function.
+
+**Option A: Set via Chrome Storage (Recommended)**
 
 1. Right-click the extension icon → Options (or go to `chrome://extensions/` → click "Details" → "Extension options")
-2. Select your preferred language from the dropdown
+2. Enter your Google Gemini API key
 3. Save
 
-This sets the language for both UI elements and AI responses.
+**Option B: Hardcode (Development only)**
 
-**Note**: The API key is handled server-side by the backend. Users don't need to configure it.
+Edit `content.js` and replace the API key loading logic (not recommended for production).
+
+### 4. Get Google Gemini API Key
+
+1. Go to https://makersuite.google.com/app/apikey
+2. Sign in with your Google account
+3. Click "Create API Key"
+4. Copy and paste it into the extension options
+
+**Note**: API usage is free for reasonable usage, but Google may have rate limits. Monitor your usage on the Google AI Studio dashboard.
 
 ## Usage
 
@@ -96,42 +65,11 @@ This sets the language for both UI elements and AI responses.
 
 The explanation focuses on what the text means *in this specific context*, not dictionary definitions.
 
-## Technology Stack
-
-### Extension (Frontend)
-- **Chrome Extension Manifest V3** - Extension configuration and permissions
-- **Vanilla JavaScript** - No frameworks, lightweight and fast
-- **CSS3** - Custom styling for UI components
-- **HTML5** - Options page interface
-- **Chrome Storage API** - Local storage for user preferences (language selection)
-- **Fetch API** - HTTP requests to backend
-- **Content Scripts** - Injected into web pages for text selection and UI overlay
-
-### Backend
-- **Node.js** (>=18.0.0) - JavaScript runtime
-- **Express.js** - Web framework for API server
-- **CORS** - Cross-Origin Resource Sharing middleware
-- **dotenv** - Environment variable management
-- **Google Gemini API** - AI model for text explanations
-  - Model: `gemini-2.5-flash`
-  - Endpoint: `v1beta/models/gemini-2.5-flash:generateContent`
-
-### Deployment
-- **Vercel** - Serverless backend hosting
-- **GitHub** - Version control and repository
-
-### APIs & Services
-- **Google Gemini API** - AI text explanation service
-- **Chrome Extensions API** - Browser extension platform
-
 ## Architecture
 
 - `manifest.json`: Extension configuration
 - `content.js`: Main logic for text selection, UI, and API calls
-- `api.js`: Backend API communication module
-- `options.html/js`: Extension settings page
 - `styles.css`: Styling for floating button and explanation card
-- `backend/server.js`: Express server handling Gemini API calls
 
 ## Constraints & Design Decisions
 
@@ -143,21 +81,20 @@ The explanation focuses on what the text means *in this specific context*, not d
 
 ## Customization
 
-### Change Backend URL
+### Change API Endpoint
 
-Edit `api.js`:
+Edit `content.js`:
 ```javascript
-const BACKEND_URL = 'https://exply.vercel.app'; // Change to your backend URL
+const GEMINI_MODEL = 'gemini-pro'; // Change model name here
+const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 ```
 
-### Adjust AI Model
+### Adjust Model
 
-Edit `backend/server.js`:
+Edit the model constant in `content.js`:
 ```javascript
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'; // Change model name
+const GEMINI_MODEL = 'gemini-pro'; // Change to gemini-pro-vision, etc.
 ```
-
-Or set the `GEMINI_MODEL` environment variable in your deployment platform (Vercel, Railway, etc.).
 
 ### Modify Minimum Selection Length
 
@@ -172,66 +109,26 @@ const MIN_SELECTION_LENGTH = 8; // Change to desired minimum
 - Ensure you've selected at least 8 characters
 - Check browser console for errors (`F12` → Console)
 
-**API errors (500 Internal Server Error):**
-- The backend server may be down or misconfigured
-- Check backend health endpoint: `https://exply.vercel.app/health`
-- Verify backend has `GEMINI_API_KEY` environment variable set
-- Check Google Gemini API status and quota
+**API errors:**
+- Verify your API key is set correctly
+- Check Google Gemini API status
+- Ensure you have API quota (check Google AI Studio)
 
 **Explanation card appears off-screen:**
 - Scroll to see it, or close and try selecting text in a different area
 
-**Network errors:**
-- Check your internet connection
-- Verify backend URL in `api.js` is correct
-- Check browser console for CORS or network errors
-
 ## Development
-
-### Extension Development
 
 The extension uses:
 - Manifest V3
 - Vanilla JavaScript (no frameworks)
-- Chrome Storage API for user preferences
-- Fetch API for HTTP requests to backend
+- Chrome Storage API for API key
+- Fetch API for HTTP requests
 
-To test extension changes:
-1. Make edits to extension files
+To test changes:
+1. Make edits to files
 2. Go to `chrome://extensions/`
 3. Click the refresh icon on the extension card
-
-### Backend Development
-
-The backend is a simple Express.js server that proxies requests to Google Gemini API.
-
-To run backend locally:
-```bash
-cd backend
-npm install
-npm start  # or npm run dev for nodemon
-```
-
-Environment variables required:
-- `GEMINI_API_KEY` - Your Google Gemini API key
-- `PORT` (optional, defaults to 3000)
-- `GEMINI_MODEL` (optional, defaults to 'gemini-2.5-flash')
-
-### Project Structure
-
-```
-BrowserAI/
-├── manifest.json          # Extension configuration
-├── content.js             # Main extension logic
-├── api.js                 # Backend API client
-├── options.html/js        # Extension settings page
-├── styles.css             # UI styling
-├── icons/                 # Extension icons
-└── backend/
-    ├── server.js          # Express backend server
-    ├── package.json       # Backend dependencies
-    └── vercel.json        # Vercel deployment config
-```
 
 ## License
 

@@ -41,7 +41,7 @@
   
   // API module should be loaded before this script (via manifest.json)
   if (!window.ExplyAPI) {
-    // no-op
+    console.error('ExplyAPI module not loaded. Check manifest.json includes api.js');
   }
 
   let selectedText = '';
@@ -575,7 +575,7 @@
       }
 
       if (!floatingButton) {
-        // no-op
+        console.error('Failed to create floating button');
         return;
       }
 
@@ -583,7 +583,7 @@
       floatingButton.style.left = `${pos.left}px`;
       floatingButton.classList.add('visible');
     } catch (error) {
-      // no-op
+      console.error('Error in showFloatingButton:', error);
     }
   }
 
@@ -637,6 +637,7 @@
     try {
       await triggerExplanation();
     } catch (error) {
+      console.error('Error triggering explanation:', error);
       alert('Error: ' + error.message);
     }
   }
@@ -1107,6 +1108,7 @@
         }
       });
       } catch (error) {
+        console.error('Error updating language:', error);
         isUpdatingLanguage = false;
       }
     });
@@ -1264,6 +1266,7 @@
         hideFloatingButton();
       }
     } catch (error) {
+      console.error('Error in handleSelection:', error);
       hideFloatingButton();
     }
   }
