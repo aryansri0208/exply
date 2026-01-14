@@ -2,9 +2,12 @@
 const supabase = require('../supabase');
 
 async function authenticateSupabaseUser(req, res, next) {
-  // If Supabase is not configured, skip auth (backend remains open)
+  // If Supabase is not configured, reject all requests
   if (!supabase) {
-    return next();
+    return res.status(503).json({
+      error: 'Service Unavailable',
+      message: 'Authentication service is not configured. Please contact support.'
+    });
   }
 
   try {
@@ -13,13 +16,15 @@ async function authenticateSupabaseUser(req, res, next) {
       ? authHeader.slice(7)
       : null;
 
+    // Token is mandatory
     if (!token) {
       return res.status(401).json({
         error: 'Unauthorized',
-        message: 'Missing authentication token. Please log in on exply.app and try again.'
+        message: 'Authentication required. Please log in on exply.app and try again.'
       });
     }
 
+    // Verify token with Supabase
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data?.user) {
@@ -29,6 +34,7 @@ async function authenticateSupabaseUser(req, res, next) {
       });
     }
 
+    // Valid token - set user for usage tracking
     req.user = { id: data.user.id };
     return next();
   } catch (err) {

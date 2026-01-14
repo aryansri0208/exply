@@ -85,13 +85,15 @@
     try {
       const token = await getSupabaseTokenFromPage().catch(() => null);
 
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      // Authentication is mandatory - check if token is available
+      if (!token) {
+        throw new Error('Please log in on exply.app to use explanations. Make sure you are logged in on the exply website.');
       }
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
 
       const response = await fetch(BACKEND_ENDPOINT, {
         method: 'POST',
@@ -111,7 +113,7 @@
         if (response.status === 400) {
           throw new Error(errorData.message || 'Invalid request. Please check your input.');
         } else if (response.status === 401) {
-          throw new Error(errorData.message || 'You need to be logged in on exply.app to use explanations.');
+          throw new Error(errorData.message || 'Please log in on exply.app to use explanations.');
         } else if (response.status === 500) {
           throw new Error(errorData.message || 'Server error. Please try again later.');
         } else {
