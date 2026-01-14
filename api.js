@@ -50,7 +50,9 @@
         if (source === 'exply-web' && type === 'SUPABASE_TOKEN') {
           resolved = true;
           window.removeEventListener('message', handleMessage);
-          resolve(typeof token === 'string' && token.length ? token : null);
+          const hasToken = typeof token === 'string' && token.length > 0;
+          console.log('[Exply] Bridge response from page - hasToken:', hasToken);
+          resolve(hasToken ? token : null);
         }
       }
 
@@ -58,9 +60,10 @@
 
       // Ask the page for the token
       try {
+        console.log('[Exply] Requesting Supabase token from page via postMessage');
         window.postMessage({ source: 'exply-extension', type: 'GET_SUPABASE_TOKEN' }, '*');
       } catch (e) {
-        console.warn('Failed to request Supabase token from page:', e);
+        console.warn('[Exply] Failed to request Supabase token from page:', e);
       }
 
       // Fallback if no response within timeout
@@ -87,6 +90,7 @@
 
       // Authentication is mandatory - check if token is available
       if (!token) {
+        console.warn('[Exply] No Supabase token received from page. User may not be logged in or bridge script is missing.');
         throw new Error('Please log in to your account to use explanations. Make sure you are logged in on the website where you installed the extension.');
       }
 
@@ -94,6 +98,7 @@
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       };
+      console.log('[Exply] Sending /explain request with Authorization header length:', headers['Authorization']?.length || 0);
 
       const response = await fetch(BACKEND_ENDPOINT, {
         method: 'POST',
@@ -109,6 +114,7 @@
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('[Exply] Backend error status:', response.status, 'body:', errorData);
         
         if (response.status === 400) {
           throw new Error(errorData.message || 'Invalid request. Please check your input.');
