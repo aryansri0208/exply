@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "exply",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Get context-aware explanations of highlighted text using AI",
   "permissions": [
     "storage"
