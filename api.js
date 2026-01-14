@@ -87,7 +87,7 @@
 
       // Authentication is mandatory - check if token is available
       if (!token) {
-        throw new Error('Please log in on exply.app to use explanations. Make sure you are logged in on the exply website.');
+        throw new Error('Please log in to your account to use explanations. Make sure you are logged in on the website where you installed the extension.');
       }
 
       const headers = {
@@ -113,7 +113,7 @@
         if (response.status === 400) {
           throw new Error(errorData.message || 'Invalid request. Please check your input.');
         } else if (response.status === 401) {
-          throw new Error(errorData.message || 'Please log in on exply.app to use explanations.');
+          throw new Error(errorData.message || 'Please log in to your account to use explanations.');
         } else if (response.status === 500) {
           throw new Error(errorData.message || 'Server error. Please try again later.');
         } else {

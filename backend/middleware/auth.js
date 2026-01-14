@@ -20,7 +20,7 @@ async function authenticateSupabaseUser(req, res, next) {
     if (!token) {
       return res.status(401).json({
         error: 'Unauthorized',
-        message: 'Authentication required. Please log in on exply.app and try again.'
+        message: 'Authentication required. Please log in to your account and try again.'
       });
     }
 
@@ -30,7 +30,7 @@ async function authenticateSupabaseUser(req, res, next) {
     if (error || !data?.user) {
       return res.status(401).json({
         error: 'Unauthorized',
-        message: 'Invalid or expired session. Please log in again on exply.app.'
+        message: 'Invalid or expired session. Please log in again.'
       });
     }
 
