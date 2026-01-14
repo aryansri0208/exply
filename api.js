@@ -32,30 +32,108 @@
     }
   }
 
-  // Listen for Supabase token broadcasts from the Exply website.
-  // The website (auth.js) posts messages like:
-  //   { source: 'exply-web', type: 'SUPABASE_TOKEN', token: '...' }
+  // Helper function to save token to storage
+  function saveTokenToStorage(token) {
+    cachedSupabaseToken = token;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+      try {
+        chrome.storage.sync.set({ [TOKEN_STORAGE_KEY]: token || '' }, () => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            console.warn('[Exply] Failed to save Supabase token to storage:', chrome.runtime.lastError.message);
+          } else {
+            console.log('[Exply] Saved Supabase token to storage');
+          }
+        });
+      } catch (e) {
+        console.warn('[Exply] Error saving Supabase token to storage:', e);
+      }
+    }
+  }
+
+  // Inject a script into the page context that can access window.explySupabase
+  // This script runs in the page's context, not the content script's isolated world
+  function injectTokenBridgeScript() {
+    // Check if we've already injected the script
+    if (document.getElementById('exply-token-bridge-script')) {
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'exply-token-bridge-script';
+    script.textContent = `
+      (function() {
+        // This code runs in the page context, so it can access window.explySupabase
+        function checkAndBroadcastToken() {
+          try {
+            // Check if Supabase client is available on the page
+            const supabase = window.explySupabase || (window.supabase && typeof window.supabase.createClient === 'function' ? null : null);
+            
+            if (supabase && typeof supabase.auth !== 'undefined') {
+              supabase.auth.getSession().then(({ data: { session }, error }) => {
+                if (!error && session && session.access_token) {
+                  // Post message that content script can receive
+                  window.postMessage({
+                    source: 'exply-page-bridge',
+                    type: 'SUPABASE_TOKEN',
+                    token: session.access_token
+                  }, '*');
+                }
+              }).catch(() => {
+                // Ignore errors
+              });
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+        }
+
+        // Check immediately
+        checkAndBroadcastToken();
+
+        // Also listen for messages from the page's auth.js
+        window.addEventListener('message', function(event) {
+          if (event.data && event.data.source === 'exply-web' && event.data.type === 'SUPABASE_TOKEN') {
+            // Forward to content script
+            window.postMessage({
+              source: 'exply-page-bridge',
+              type: 'SUPABASE_TOKEN',
+              token: event.data.token
+            }, '*');
+          }
+        });
+
+        // Periodically check for token (in case user logs in after page load)
+        setInterval(checkAndBroadcastToken, 5000);
+      })();
+    `;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove(); // Remove the script tag but keep the code running
+  }
+
+  // Inject the bridge script
+  if (document.head || document.documentElement) {
+    injectTokenBridgeScript();
+  } else {
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', injectTokenBridgeScript);
+    } else {
+      setTimeout(injectTokenBridgeScript, 100);
+    }
+  }
+
+  // Listen for token broadcasts from both the website and the injected bridge script
   window.addEventListener('message', (event) => {
     if (!event || !event.data) return;
 
     const { source, type, token } = event.data;
-    if (source === 'exply-web' && type === 'SUPABASE_TOKEN') {
+    
+    // Accept messages from both the website (exply-web) and our injected bridge (exply-page-bridge)
+    if ((source === 'exply-web' || source === 'exply-page-bridge') && type === 'SUPABASE_TOKEN') {
       const hasToken = typeof token === 'string' && token.length > 0;
-      console.log('[Exply] Received Supabase token broadcast from website - hasToken:', hasToken);
+      console.log('[Exply] Received Supabase token broadcast - hasToken:', hasToken, 'source:', source);
 
-      cachedSupabaseToken = hasToken ? token : null;
-
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-        try {
-          chrome.storage.sync.set({ [TOKEN_STORAGE_KEY]: cachedSupabaseToken || '' }, () => {
-            if (chrome.runtime && chrome.runtime.lastError) {
-              console.warn('[Exply] Failed to save Supabase token to storage:', chrome.runtime.lastError.message);
-            }
-          });
-        } catch (e) {
-          console.warn('[Exply] Error saving Supabase token to storage:', e);
-        }
-      }
+      saveTokenToStorage(hasToken ? token : null);
     }
   });
 
