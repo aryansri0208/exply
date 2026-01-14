@@ -4,6 +4,8 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const { authenticateSupabaseUser } = require('./middleware/auth');
+const { trackUsage } = require('./usage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -156,18 +158,24 @@ async function callGemini(context, followUpQuestion = null, mode = 'explain', la
   const candidate = data.candidates[0];
   const parts = candidate.content.parts || [];
   const fullText = parts.map(part => part.text || '').join('');
-  
+
   if (candidate.finishReason === 'MAX_TOKENS') {
     console.warn('Response was truncated due to token limit');
   }
-  
-  return fullText || 'No explanation provided.';
+
+  // Extract usage metadata if available (Gemini v1beta typically returns usageMetadata)
+  const usageMetadata = data.usageMetadata || null;
+
+  return {
+    text: fullText || 'No explanation provided.',
+    usageMetadata
+  };
 }
 
 /**
  * POST /explain - Main endpoint
  */
-app.post('/explain', async (req, res) => {
+app.post('/explain', authenticateSupabaseUser, async (req, res) => {
   try {
     const { text, mode, context, target_language, followUpQuestion } = req.body;
     
@@ -189,16 +197,25 @@ app.post('/explain', async (req, res) => {
 
     const explanationMode = mode || 'explain';
     const targetLang = target_language || 'en';
-
-    const result = await callGemini(
+    
+    const { text: resultText, usageMetadata } = await callGemini(
       explanationContext,
       followUpQuestion || null,
       explanationMode,
       targetLang
     );
 
+    // If user is authenticated (Supabase configured), track usage without storing prompts
+    if (req.user && req.user.id) {
+      const totalTokens = usageMetadata?.totalTokenCount || usageMetadata?.totalTokens;
+      trackUsage(req.user.id, {
+        mode: explanationMode,
+        tokens: typeof totalTokens === 'number' ? totalTokens : undefined
+      });
+    }
+
     res.json({
-      result: result
+      result: resultText
     });
 
   } catch (error) {
